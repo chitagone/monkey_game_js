@@ -11,6 +11,19 @@ let currentMonkeyImg = normalMonkeyImg;
 let appleImg = new Image();
 appleImg.src = "apple.png"; // Replace with your apple image file path
 
+// Background image
+let backgroundImg = new Image();
+backgroundImg.src = "background.png"; // Replace with your background image path
+
+// Sounds
+let gulpSound = new Audio("eat2.mp3");
+let gameOverSound = new Audio("gameover.mp3");
+let backgroundMusic = new Audio("background2.mp3");
+
+// Configure background music
+backgroundMusic.loop = true;
+backgroundMusic.volume = 0.5; // Adjust volume as needed
+
 // Snake axis
 class SnakePart {
   constructor(x, y) {
@@ -39,46 +52,53 @@ let xVelocity = 0;
 let yVelocity = 0;
 
 let score = 0;
-let timeLeft = 10; // Set initial time left to 10 seconds
-let appleTimer = 5; // Timer to regenerate apple
-
-let gulpSound = new Audio("gulp.mp3");
+let timeLeft = 10;
+let appleTimer = 5;
+let isGameStarted = false;
 
 // Game loop
 function drawGame() {
-  xVelocity = inputsXVelocity;
-  yVelocity = inputsYVelocity;
+  if (isGameStarted) {
+    xVelocity = inputsXVelocity;
+    yVelocity = inputsYVelocity;
 
-  changeSnakePosition();
-  let result = isGameOver();
-  if (result) {
-    return;
-  }
+    changeSnakePosition();
+    let result = isGameOver();
+    if (result) {
+      return;
+    }
 
-  clearScreen();
+    clearScreen();
 
-  checkAppleCollision();
-  drawApple();
-  updateApplePosition(); // Update apple if timer runs out
-  updateMonkeyImage(); // Change monkey image based on time left
-  drawSnake();
-  drawScore();
-  drawTimer();
+    checkAppleCollision();
+    drawApple();
+    updateApplePosition();
+    updateMonkeyImage();
+    drawSnake();
+    drawScore();
+    drawTimer(); // Include the countdown timer with blood bar
 
-  if (score > 5) {
-    speed = 9;
-  }
-  if (score > 10) {
-    speed = 11;
-  }
+    if (score > 5) {
+      speed = 9;
+    }
+    if (score > 10) {
+      speed = 11;
+    }
 
-  // Decrease timers
-  timeLeft -= 1 / speed;
-  appleTimer -= 1 / speed;
+    // Decrease timers
+    timeLeft -= 1 / speed;
+    appleTimer -= 1 / speed;
 
-  if (timeLeft <= 0) {
-    displayGameOver();
-    return;
+    if (timeLeft <= 0) {
+      displayGameOver();
+      return;
+    }
+  } else {
+    clearScreen();
+    drawSnake();
+    drawApple();
+    drawScore();
+    drawTimer();
   }
 
   setTimeout(drawGame, 1000 / speed);
@@ -123,6 +143,9 @@ function displayGameOver() {
 
   ctx.fillStyle = gradient;
   ctx.fillText("Game Over!", canvas.width / 6.5, canvas.height / 2);
+
+  backgroundMusic.pause(); // Stop background music
+  gameOverSound.play(); // Play game over sound
 }
 
 function drawScore() {
@@ -131,19 +154,37 @@ function drawScore() {
   ctx.fillText("Score: " + score, canvas.width - 60, 10);
 }
 
+// Draw the timer with blood bar
 function drawTimer() {
+  // Draw the timer text at the top left corner
   ctx.fillStyle = "white";
   ctx.font = "10px Verdana";
   ctx.fillText("Time Left: " + Math.ceil(timeLeft), 10, 10);
+
+  // Blood grade bar - horizontal countdown
+  const bloodBarHeight = 20; // Height of the blood bar
+  const barX = 10; // X-position for the blood bar
+  const barY = 30; // Y-position for the blood bar
+  const maxWidth = canvas.width - 20; // Maximum width of the blood bar
+  const currentWidth = (timeLeft / 10) * maxWidth; // Decrease width as time passes
+
+  // Create a gradient color for the blood bar (e.g., green to red)
+  const bloodGradient = ctx.createLinearGradient(barX, barY, barX + currentWidth, barY);
+  bloodGradient.addColorStop(0, "green"); // Start with green when time is full
+  bloodGradient.addColorStop(0.5, "yellow"); // Transition to yellow as time decreases
+  bloodGradient.addColorStop(1, "red"); // End with red when time is almost up
+
+  // Draw the blood bar (horizontal)
+  ctx.fillStyle = bloodGradient;
+  ctx.fillRect(barX, barY, currentWidth, bloodBarHeight);
 }
 
 function clearScreen() {
-  ctx.fillStyle = "black";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Draw background image
+  ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
 }
 
 function drawSnake() {
-  // Draw the snake head as the current monkey image
   ctx.drawImage(
     currentMonkeyImg,
     headX * tileCount,
@@ -152,10 +193,10 @@ function drawSnake() {
     tileSize
   );
 
-  snakeParts.push(new SnakePart(headX, headY)); // Add new head to the snake
+  snakeParts.push(new SnakePart(headX, headY));
 
   while (snakeParts.length > tailLength) {
-    snakeParts.shift(); // Remove the oldest part of the snake
+    snakeParts.shift();
   }
 }
 
@@ -182,8 +223,8 @@ function checkAppleCollision() {
     gulpSound.play();
 
     // Reset timers
-    timeLeft = 10; // Reset time left to 10 seconds
-    appleTimer = 5; // Reset apple timer
+    timeLeft = 10;
+    appleTimer = 5;
   }
 }
 
@@ -191,27 +232,34 @@ function updateApplePosition() {
   if (appleTimer <= 0) {
     appleX = Math.floor(Math.random() * tileCount);
     appleY = Math.floor(Math.random() * tileCount);
-    appleTimer = 5; // Reset apple timer to 5 seconds
+    appleTimer = 5;
   }
 }
 
 function updateMonkeyImage() {
   if (timeLeft < 5) {
-    currentMonkeyImg = warningMonkeyImg; // Change to warning monkey
+    currentMonkeyImg = warningMonkeyImg;
   } else {
-    currentMonkeyImg = normalMonkeyImg; // Revert to normal monkey
+    currentMonkeyImg = normalMonkeyImg;
   }
 }
 
 document.body.addEventListener("keydown", keyDown);
 
 function keyDown(event) {
+  if (!isGameStarted) {
+    isGameStarted = true;
+    backgroundMusic.play(); // Start background music
+  }
+
+
   // Up
   if ((event.keyCode == 38 || event.keyCode == 87) && inputsYVelocity !== 1) {
     inputsYVelocity = -1;
     inputsXVelocity = 0;
   }
 
+  
   // Down
   if ((event.keyCode == 40 || event.keyCode == 83) && inputsYVelocity !== -1) {
     inputsYVelocity = 1;
